@@ -1,0 +1,86 @@
+/* Reset everything */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Fullscreen layout */
+html,
+body {
+  background: black;
+  overflow: hidden;
+
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Make canvas true fullscreen background */
+canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+
+  width: 100vw;
+  height: 100vh;
+
+  z-index: 0;
+  display: block;
+}
+
+/* Bring UI above canvas */
+.panel,
+h1,
+.box {
+  position: relative;
+  z-index: 1;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: fit-content;
+  padding: 2rem 2.5rem 2.25rem;
+  background: rgba(0, 18, 0, 0.88);
+  border: 1px solid rgba(0, 255, 0, 0.28);
+  border-radius: 18px;
+  box-shadow:
+    0 0 0 1px rgba(0, 255, 0, 0.08),
+    0 18px 45px rgba(0, 0, 0, 0.55),
+    0 0 30px rgba(0, 255, 0, 0.1) inset;
+  backdrop-filter: blur(6px);
+}
+
+/* Glow effect */
+.glow {
+  color: #00ff00;
+  text-shadow:
+    0 0 5px #00ff00,
+    0 0 10px #00ff00,
+    0 0 20px #00ff00;
+}
+
+/* Floating box */
+.box {
+  width: 100px;
+  height: 100px;
+  border: 1px solid #00ff00;
+  box-shadow:
+    0 0 12px rgba(0, 255, 0, 0.18),
+    0 0 0 1px rgba(0, 255, 0, 0.12) inset;
+
+  margin-top: 28px;
+  animation: float 3s infinite ease-in-out;
+}
+
+/* Animation */
+@keyframes float {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-20px); }
+  100% { transform: translateY(0); }
+}
