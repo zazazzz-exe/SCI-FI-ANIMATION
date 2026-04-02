@@ -10,6 +10,19 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div id="boot-sequence">
+    <div class="boot-card">
+      <p class="boot-title">Initializing Sci-Fi Dashboard</p>
+      <p class="boot-line">Loading hologram tower modules...</p>
+      <p class="boot-line">Synchronizing particle relay...</p>
+      <p class="boot-line">Calibrating audio-reactive sensors...</p>
+      <div class="boot-progress">
+        <span id="boot-fill"></span>
+      </div>
+      <p class="boot-status" id="boot-status">Boot sequence: 0%</p>
+    </div>
+  </div>
+
   <canvas id="matrix"></canvas>
   <div id="three-container"></div>
 
@@ -22,6 +35,7 @@
   <section class="hud hud-left">
     <h2>Telemetry</h2>
     <div class="hud-row"><span>FPS</span><strong id="metric-fps">0</strong></div>
+    <div class="hud-row"><span>Mic</span><strong id="metric-mic">0%</strong></div>
     <div class="hud-row"><span>Energy</span><strong id="metric-energy">0%</strong></div>
     <div class="hud-row"><span>Flux</span><strong id="metric-flux">0.00</strong></div>
     <div class="hud-row"><span>Particles</span><strong id="metric-particles">0</strong></div>
@@ -31,8 +45,38 @@
   <section class="hud hud-right">
     <h2>Controls</h2>
     <p>Drag in center to rotate tower.</p>
-    <p>Matrix feed and particles update live.</p>
+    <div class="ability-grid">
+      <button class="hud-btn" data-ability="pulse">Pulse Burst</button>
+      <button class="hud-btn" data-ability="emp">EMP Wave</button>
+      <button class="hud-btn" data-ability="scan">Scan Sweep</button>
+      <button class="hud-btn" data-ability="overclock">Overclock</button>
+    </div>
+
+    <h2 class="section-gap">Audio</h2>
+    <button class="hud-btn full" id="audio-toggle">Enable Audio Reactive</button>
+
+    <h2 class="section-gap">Themes</h2>
+    <div class="theme-grid">
+      <button class="hud-btn" data-theme="matrix">Matrix</button>
+      <button class="hud-btn" data-theme="cyber">Cyber Blue</button>
+      <button class="hud-btn" data-theme="warning">Warning Red</button>
+      <button class="hud-btn" data-theme="amber">Stealth Amber</button>
+    </div>
+
+    <h2 class="section-gap">Camera</h2>
+    <div class="theme-grid">
+      <button class="hud-btn" data-camera="cinematic">Cinematic</button>
+      <button class="hud-btn" data-camera="tactical">Tactical</button>
+      <button class="hud-btn" data-camera="orbit">Orbit</button>
+      <button class="hud-btn" id="presentation-toggle">Presentation</button>
+    </div>
+
     <div class="power-bar"><span id="power-level"></span></div>
+  </section>
+
+  <section class="hud hud-radar">
+    <h2>Radar</h2>
+    <canvas id="radar-canvas" width="220" height="220" aria-label="Radar display"></canvas>
   </section>
 
   <section class="hud hud-bottom">
@@ -42,6 +86,13 @@
 
   <script src="https://cdn.jsdelivr.net/npm/gsap@3"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/postprocessing/EffectComposer.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/postprocessing/RenderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/postprocessing/ShaderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/postprocessing/UnrealBloomPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/shaders/CopyShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/shaders/LuminosityHighPassShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/shaders/RGBShiftShader.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
