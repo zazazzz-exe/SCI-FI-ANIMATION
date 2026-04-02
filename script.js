@@ -109,11 +109,126 @@ const logs = [
   "Listening channel armed."
 ];
 
+const SOUND_LIBRARY = {
+  uiClick: { path: "assets/sounds/ui-click.mp3", volume: 0.35 },
+  bootComplete: { path: "assets/sounds/boot-complete.mp3", volume: 0.5 },
+  ambience: { path: "assets/sounds/ambience-loop.mp3", volume: 0.24, loop: true },
+  abilityPulse: { path: "assets/sounds/ability-pulse.mp3", volume: 0.55 },
+  abilityEmp: { path: "assets/sounds/ability-emp.mp3", volume: 0.58 },
+  abilityScan: { path: "assets/sounds/ability-scan.mp3", volume: 0.52 },
+  abilityOverclock: { path: "assets/sounds/ability-overclock.mp3", volume: 0.58 },
+  themeSwitch: { path: "assets/sounds/theme-switch.mp3", volume: 0.38 },
+  cameraSwitch: { path: "assets/sounds/camera-switch.mp3", volume: 0.38 },
+  presentationToggle: { path: "assets/sounds/presentation-toggle.mp3", volume: 0.45 },
+  audioEnabled: { path: "assets/sounds/audio-enabled.mp3", volume: 0.45 },
+  audioDisabled: { path: "assets/sounds/audio-disabled.mp3", volume: 0.45 },
+  audioError: { path: "assets/sounds/audio-error.mp3", volume: 0.45 }
+};
+
+const soundState = {
+  enabled: true,
+  unlocked: false,
+  clips: {}
+};
+
 let logIndex = 0;
 let lastTime = performance.now();
 
 function pushLog(message) {
   logEl.textContent = message;
+}
+
+function createSoundClip(path, volume, loop = false) {
+  const clip = new Audio(path);
+  clip.preload = "auto";
+  clip.volume = volume;
+  clip.loop = loop;
+  clip.dataset.lastErrorAt = "0";
+
+  clip.addEventListener("error", () => {
+    clip.dataset.lastErrorAt = String(Date.now());
+  });
+
+  return clip;
+}
+
+function initializeSoundPlaceholders() {
+  Object.entries(SOUND_LIBRARY).forEach(([key, config]) => {
+    soundState.clips[key] = createSoundClip(config.path, config.volume, Boolean(config.loop));
+  });
+}
+
+function playSound(key, options = {}) {
+  if (!soundState.enabled || !soundState.unlocked) {
+    return;
+  }
+
+  const clip = soundState.clips[key];
+  if (!clip) {
+    return;
+  }
+
+  const lastErrorAt = Number(clip.dataset.lastErrorAt || "0");
+  const now = Date.now();
+
+  // Retry loading after transient failures (e.g., Live Server restart).
+  if (lastErrorAt > 0 && now - lastErrorAt > 3000) {
+    clip.load();
+    clip.dataset.lastErrorAt = "0";
+  }
+
+  const restart = options.restart !== false;
+  if (restart) {
+    clip.currentTime = 0;
+  }
+
+  clip.play().catch((error) => {
+    if (error && error.name === "NotAllowedError") {
+      if (typeof options.onBlocked === "function") {
+        options.onBlocked(error);
+      }
+      return;
+    }
+
+    clip.dataset.lastErrorAt = String(Date.now());
+  });
+}
+
+function setSoundEnabled(isEnabled) {
+  soundState.enabled = isEnabled;
+
+  const ambience = soundState.clips.ambience;
+  if (ambience) {
+    if (isEnabled && soundState.unlocked) {
+      playSound("ambience", { restart: false });
+    } else {
+      ambience.pause();
+      ambience.currentTime = 0;
+    }
+  }
+}
+
+function unlockSoundOnFirstGesture() {
+  if (soundState.unlocked) {
+    return;
+  }
+
+  soundState.unlocked = true;
+  if (soundState.enabled) {
+    playSound("ambience", { restart: false });
+    pushLog("Ambience started after user interaction.");
+  }
+}
+
+function attemptAmbientAutoplay() {
+  soundState.unlocked = true;
+  playSound("ambience", {
+    restart: false,
+    onBlocked: () => {
+      soundState.unlocked = false;
+      pushLog("Autoplay blocked by browser. Click or press any key to start ambience.");
+    }
+  });
 }
 
 function updateBootSequence() {
@@ -136,9 +251,12 @@ function updateBootSequence() {
         bootEl.remove();
       }, 920);
       pushLog("Core systems online. Awaiting command.");
+      playSound("bootComplete");
     }
   }, 130);
 }
+
+initializeSoundPlaceholders();
 
 if (window.gsap) {
   gsap.from(".panel", {
@@ -156,6 +274,12 @@ if (window.gsap) {
   });
 }
 
+window.addEventListener("pointerdown", unlockSoundOnFirstGesture, { once: true });
+window.addEventListener("keydown", unlockSoundOnFirstGesture, { once: true });
+window.addEventListener("touchstart", unlockSoundOnFirstGesture, { once: true, passive: true });
+
+setSoundEnabled(true);
+attemptAmbientAutoplay();
 updateBootSequence();
 
 const matrixCanvas = document.getElementById("matrix");
@@ -494,6 +618,7 @@ function setCameraMode(modeName) {
   });
 
   pushLog(`Camera mode: ${modeName.toUpperCase()}`);
+  playSound("cameraSwitch");
 }
 
 cameraButtons.forEach((button) => {
@@ -508,6 +633,7 @@ if (presentationToggle) {
     document.body.classList.toggle("presentation-mode", presentationState.active);
     presentationToggle.classList.toggle("active", presentationState.active);
     pushLog(presentationState.active ? "Presentation mode enabled." : "Presentation mode disabled.");
+    playSound("presentationToggle");
   });
 }
 
@@ -588,6 +714,7 @@ function triggerPulse() {
   }
 
   pushLog("Pulse Burst executed.");
+  playSound("abilityPulse");
 }
 
 function triggerEMP() {
@@ -625,6 +752,7 @@ function triggerEMP() {
   }
 
   pushLog("EMP Wave deployed.");
+  playSound("abilityEmp");
 }
 
 function triggerScan() {
@@ -660,6 +788,7 @@ function triggerScan() {
   }
 
   pushLog("Scan sweep complete.");
+  playSound("abilityScan");
 }
 
 function triggerOverclock() {
@@ -676,6 +805,7 @@ function triggerOverclock() {
   }
 
   pushLog("Overclock engaged.");
+  playSound("abilityOverclock");
 }
 
 abilityButtons.forEach((button) => {
@@ -697,6 +827,8 @@ abilityButtons.forEach((button) => {
     if (ability === "overclock") {
       triggerOverclock();
     }
+
+    playSound("uiClick");
   });
 });
 
@@ -712,6 +844,7 @@ async function enableAudioReactive() {
     audioToggle.textContent = "Enable Audio Reactive";
     audioToggle.classList.remove("active");
     pushLog("Audio-reactive mode paused.");
+    playSound("audioDisabled");
     return;
   }
 
@@ -742,10 +875,12 @@ async function enableAudioReactive() {
     audioToggle.textContent = "Audio Reactive Active";
     audioToggle.classList.add("active");
     pushLog("Audio-reactive mode active. Speak or play audio near mic.");
+    playSound("audioEnabled");
   } catch (error) {
     const reason = error && error.name ? error.name : "unknown-error";
     pushLog(`Mic unavailable (${reason}). Using simulated pulses.`);
     state.audioReady = false;
+    playSound("audioError");
   }
 }
 
@@ -802,6 +937,7 @@ function applyTheme(themeName) {
   });
 
   pushLog(`Theme changed to ${themeName.toUpperCase()}.`);
+  playSound("themeSwitch");
 }
 
 themeButtons.forEach((button) => {
@@ -990,3 +1126,9 @@ function animate(time) {
 }
 
 animate(performance.now());
+
+
+
+
+
+
