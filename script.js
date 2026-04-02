@@ -1,8 +1,8 @@
 console.log("Sci-fi animation started");
 
 if (window.gsap) {
-  gsap.from(".glow", {
-    y: 100,
+  gsap.from(".panel", {
+    y: -30,
     opacity: 0,
     duration: 1.5
   });
@@ -66,3 +66,64 @@ function animate() {
 }
 
 animate();
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(
+  75,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000
+);
+
+const renderer = new THREE.WebGLRenderer({ alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+
+document.getElementById("three-container").appendChild(renderer.domElement);
+
+// Cube (your "square" but 3D)
+const geometry = new THREE.BoxGeometry();
+const material = new THREE.MeshBasicMaterial({
+  color: 0x00ff00,
+  wireframe: true
+});
+
+const cube = new THREE.Mesh(geometry, material);
+scene.add(cube);
+
+camera.position.z = 3;
+
+// 🖱️ Mouse drag rotation
+let isDragging = false;
+let previousMousePosition = { x: 0, y: 0 };
+
+window.addEventListener("mousedown", (e) => {
+  isDragging = true;
+  previousMousePosition = { x: e.clientX, y: e.clientY };
+});
+
+window.addEventListener("mouseup", () => {
+  isDragging = false;
+});
+
+window.addEventListener("mousemove", (e) => {
+  if (!isDragging) return;
+
+  const deltaX = e.clientX - previousMousePosition.x;
+  const deltaY = e.clientY - previousMousePosition.y;
+
+  cube.rotation.y += deltaX * 0.01;
+  cube.rotation.x += deltaY * 0.01;
+
+  previousMousePosition = {
+    x: e.clientX,
+    y: e.clientY
+  };
+});
+
+// Render loop
+function animate3D() {
+  requestAnimationFrame(animate3D);
+  renderer.render(scene, camera);
+}
+
+animate3D();
