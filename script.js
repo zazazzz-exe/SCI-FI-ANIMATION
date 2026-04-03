@@ -7,6 +7,11 @@ const state = {
   boostDecay: 0,
   audioReady: false,
   audioLevel: 0,
+  audioBands: {
+    low: 0,
+    mid: 0,
+    treble: 0
+  },
   fps: 60
 };
 
@@ -66,6 +71,7 @@ const presentationToggle = document.getElementById("presentation-toggle");
 const cameraButtons = document.querySelectorAll("[data-camera]");
 const radarCanvas = document.getElementById("radar-canvas");
 const radarCtx = radarCanvas ? radarCanvas.getContext("2d") : null;
+const audioMeterEl = document.getElementById("audio-reactive-meter");
 
 const abilityButtons = document.querySelectorAll("[data-ability]");
 const themeButtons = document.querySelectorAll("[data-theme]");
@@ -133,6 +139,56 @@ const soundState = {
 
 let logIndex = 0;
 let lastTime = performance.now();
+const audioMeterBars = [];
+
+function initializeAudioMeter() {
+  if (!audioMeterEl) {
+    return;
+  }
+
+  const totalBars = 20;
+  for (let i = 0; i < totalBars; i++) {
+    const bar = document.createElement("span");
+    bar.className = "audio-meter-bar";
+    audioMeterEl.appendChild(bar);
+    audioMeterBars.push(bar);
+  }
+}
+
+function updateAudioVisuals(timeSeconds) {
+  const level = Math.max(0, Math.min(1, state.audioLevel));
+  const punch = Math.min(1, Math.pow(level, 0.82) * 1.08);
+
+  document.body.style.setProperty("--audio-level", punch.toFixed(3));
+  document.body.style.setProperty("--audio-bass", state.audioBands.low.toFixed(3));
+  document.body.style.setProperty("--audio-mid", state.audioBands.mid.toFixed(3));
+  document.body.style.setProperty("--audio-treble", state.audioBands.treble.toFixed(3));
+  document.body.classList.toggle("audio-reactive-on", state.audioReady);
+
+  if (!audioMeterBars.length) {
+    return;
+  }
+
+  const lastIndex = audioMeterBars.length - 1;
+  for (let i = 0; i < audioMeterBars.length; i++) {
+    const position = i / Math.max(1, lastIndex);
+    const lowWeight = Math.max(0, 1 - position * 2);
+    const midWeight = 1 - Math.abs(position - 0.5) * 2;
+    const highWeight = Math.max(0, position * 2 - 1);
+
+    const weightedBand =
+      state.audioBands.low * lowWeight +
+      state.audioBands.mid * midWeight +
+      state.audioBands.treble * highWeight;
+
+    const wobble = 0.32 + 0.68 * Math.max(0, Math.sin(timeSeconds * 10 + i * 0.58));
+    const normalized = Math.min(1, weightedBand * 0.85 + punch * 0.32);
+    const barHeight = Math.round((0.08 + normalized * wobble * 0.92) * 100);
+
+    audioMeterBars[i].style.height = `${barHeight}%`;
+    audioMeterBars[i].style.opacity = `${0.28 + normalized * 0.72}`;
+  }
+}
 
 function pushLog(message) {
   logEl.textContent = message;
@@ -257,6 +313,7 @@ function updateBootSequence() {
 }
 
 initializeSoundPlaceholders();
+initializeAudioMeter();
 
 if (window.gsap) {
   gsap.from(".panel", {
@@ -1007,6 +1064,26 @@ function updateAudioLevel(timeSeconds) {
     const avgFreq = sum / audioData.length;
     const rms = Math.sqrt(squareSum / timeData.length);
 
+    const lowEnd = Math.max(1, Math.floor(audioData.length * 0.2));
+    const midEnd = Math.max(lowEnd + 1, Math.floor(audioData.length * 0.62));
+    let lowSum = 0;
+    let midSum = 0;
+    let highSum = 0;
+
+    for (let i = 0; i < audioData.length; i++) {
+      if (i < lowEnd) {
+        lowSum += audioData[i];
+      } else if (i < midEnd) {
+        midSum += audioData[i];
+      } else {
+        highSum += audioData[i];
+      }
+    }
+
+    const lowLevel = lowSum / (lowEnd * 255);
+    const midLevel = midSum / ((midEnd - lowEnd) * 255);
+    const highLevel = highSum / (Math.max(1, audioData.length - midEnd) * 255);
+
     const freqLevel = avgFreq / 255;
     const rmsLevel = Math.min(1, rms / 64);
 
@@ -1015,10 +1092,16 @@ function updateAudioLevel(timeSeconds) {
     const clamped = Math.min(1, gated);
 
     state.audioLevel = state.audioLevel * 0.82 + clamped * 0.18;
+    state.audioBands.low = state.audioBands.low * 0.74 + Math.min(1, lowLevel * 2.1) * 0.26;
+    state.audioBands.mid = state.audioBands.mid * 0.74 + Math.min(1, midLevel * 2.25) * 0.26;
+    state.audioBands.treble = state.audioBands.treble * 0.74 + Math.min(1, highLevel * 2.6) * 0.26;
     return;
   }
 
   state.audioLevel = 0.25 + Math.sin(timeSeconds * 1.8) * 0.15;
+  state.audioBands.low = 0.45 + Math.sin(timeSeconds * 2.1) * 0.22;
+  state.audioBands.mid = 0.35 + Math.sin(timeSeconds * 2.5 + 1.1) * 0.2;
+  state.audioBands.treble = 0.3 + Math.sin(timeSeconds * 3.2 + 2.2) * 0.18;
 }
 
 function animate(time) {
@@ -1033,6 +1116,7 @@ function animate(time) {
 
   const t = time * 0.001;
   updateAudioLevel(t);
+  updateAudioVisuals(t);
 
   if (state.boostDecay > 0) {
     state.boostDecay -= delta * 0.001;
@@ -1110,9 +1194,13 @@ function animate(time) {
 
   particleMaterial.size = 0.02 + state.audioLevel * 0.02;
   coreMaterial.emissiveIntensity = 0.5 + state.audioLevel * 1.4;
+  const pulseScale = 1 + state.audioLevel * 0.2;
+  core.scale.set(1, pulseScale, 1);
+  shell.scale.set(1 + state.audioLevel * 0.08, 1, 1 + state.audioLevel * 0.08);
+  topSpire.scale.y = 1 + state.audioLevel * 0.32;
 
   if (bloomPass) {
-    bloomPass.strength = 0.85 + state.audioLevel * 0.95 + (state.boost - 1) * 0.6;
+    bloomPass.strength = 0.85 + state.audioLevel * 1.5 + (state.boost - 1) * 0.6;
   }
 
   if (rgbShiftPass) {
